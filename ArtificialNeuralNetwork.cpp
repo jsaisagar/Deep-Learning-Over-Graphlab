@@ -40,7 +40,10 @@ void load(graphlab::iarchive& iarc) {
 
 typedef graphlab::distributed_graph_edited<node, float, node> graph_type;
 
-//INPUT MATRIX IN LAYER REFERS TO THE INPUT TO THE NEXT LAYER
+/*Since many of deep learning algorithms are sequential. There are two APIs designed in layer program.
+ * One for forward direction and another for Backward direction. Layer can communicate with the vertices via
+ * context.
+ */
 class neural_layer_program :
         public graphlab::ilayer_program<graph_type, float>,
 	public graphlab::IS_POD_TYPE {
@@ -140,6 +143,7 @@ class neural_vertex_program :
                 Vector vec = input;
 		Vector weight = mat.transpose();
 		//std::cout << "The matrix is \n" << weight.size() << "and the input is " << input.size() << std::endl; 
+		//VERTEX HAS ACCESS TO LAYER DATA. HERE WE CAN UPDATE EVERYTHING ON THE LAYER DATA.
                 int counter = vertex.get_layer_data(lid).counter;
 			//std::cout << "Vertex has counter value " <<vertex.data().counter << std::endl;
 			double dot = vec.dot(weight);
@@ -148,8 +152,8 @@ class neural_vertex_program :
 			vertex.send_weighted_inputs(lid,dot);
 			//std::cout << "The sigmoid of the first phase is " << sigmoid  <<std::endl;
 			//if(sigmoid>0.4)
-
-				vertex.send_negative(lid,sigmoid);
+			
+			vertex.send_sigmoid(lid,sigmoid);
 
 }
 };
@@ -159,7 +163,14 @@ int main(int argc, char** argv) {
 	graphlab::mpi_tools::init(argc, argv);
 	graphlab::distributed_control dc;
 	graph_type graph(dc);
-if(graph.add_layer(10,784,0,15,node())) std::cout<<"YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"<<std::endl;
+	/*ADDING A LAYER IN THE GRAPH CONSTRUCTS THE LAYER OBJECT WITH FOLLOWING FIELDS
+	 * 1. iD
+	 * 2. NUMBER OF NODES IN THE THIS LAYER
+	 * 3. NUMBER OF NODES IN THE PREVIOUS LAYER
+	 * 4. NUMBER OF NODES IN THE NEXT LAYER
+	 * 5. LAYER DATA 
+	*/
+	graph.add_layer(10,784,0,15,node());
 	for(int i = 0; i<785; i++)
 	{
 		graph.add_vertex((i),node());
